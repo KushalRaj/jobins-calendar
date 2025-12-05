@@ -24,5 +24,7 @@
   { "date": "2025-12-29", "title": "Year End Holiday", "type": "holiday" },
   { "date": "2025-12-30", "title": "Year End Holiday", "type": "holiday" },
   { "date": "2025-12-31", "title": "Year End Holiday", "type": "holiday" },
-  { "date": "2025-12-20", "title": "Year End Work Day", "type": "workday" }
+  { "date": "2025-12-20", "title": "Year End Work Day", "type": "workday" },
+  { "date": "2026-01-01", "title": "New Year's Day", "type": "holiday" },
+  { "date": "2026-01-02", "title": "New Year's Day", "type": "holiday" },
 ]
