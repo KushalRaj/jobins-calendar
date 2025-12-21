@@ -21,19 +21,40 @@
         .font-serif { font-family: 'Shippori Mincho', serif; }
         .fade-in { animation: fadeIn 0.7s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        
+
         /* Utility for Modal Animation */
         .zoom-in { animation: zoomIn 0.2s ease-out forwards; }
         @keyframes zoomIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+        /* Country Selector Dropdown */
+        .country-selector {
+            position: relative;
+        }
     </style>
 </head>
 <body class="bg-[#fcfaf7] text-stone-800 min-h-screen flex flex-col selection:bg-stone-200">
 
     <!-- Header -->
     <header class="relative flex items-center justify-between py-8 px-6 md:px-12 border-b border-stone-200 bg-[#fcfaf7] min-h-[140px] md:min-h-[120px]">
-        <!-- Left: Branding -->
+        <!-- Left: Country Dropdown -->
         <div class="flex flex-col z-10 w-1/4">
-            <p class="text-xs text-stone-400 tracking-widest uppercase font-bold">JoBins Calendar - Japan</p>
+            <div class="relative country-selector">
+                <button id="country-dropdown-btn" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-stone-100 transition-colors text-stone-700">
+                    <span id="selected-country-flag" class="text-lg">🇯🇵</span>
+                    <span id="selected-country-name" class="text-sm font-medium">Japan</span>
+                    <i data-lucide="chevron-down" class="w-4 h-4 text-stone-400"></i>
+                </button>
+                <div id="country-dropdown-menu" class="absolute top-full left-0 mt-1 bg-white border border-stone-200 rounded shadow-lg hidden min-w-[140px] z-50">
+                    <button class="country-option w-full flex items-center gap-2 px-4 py-2 hover:bg-stone-50 transition-colors text-left" data-country="japan">
+                        <span class="text-lg">🇯🇵</span>
+                        <span class="text-sm text-stone-700">Japan</span>
+                    </button>
+                    <button class="country-option w-full flex items-center gap-2 px-4 py-2 hover:bg-stone-50 transition-colors text-left" data-country="nepal">
+                        <span class="text-lg">🇳🇵</span>
+                        <span class="text-sm text-stone-700">Nepal</span>
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- Center: Main Title + Year Switcher -->
@@ -41,12 +62,12 @@
             <h1 class="text-xl md:text-2xl font-serif text-stone-800 tracking-wider mb-2 text-nowrap">
                 年年間カレンダー
             </h1>
-            
+
             <div class="flex items-center gap-6 group mt-1">
                 <button id="prev-year-btn" class="p-1 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-200 transition-all" title="Previous Year">
                     <i data-lucide="chevron-left" class="w-6 h-6"></i>
                 </button>
-                
+
                 <span id="current-year-display" class="text-3xl md:text-5xl font-serif text-stone-800 tracking-widest font-medium">
                     <!-- Year injected via JS -->
                 </span>
@@ -78,7 +99,7 @@
 
     <!-- Footer -->
     <footer class="py-12 text-center text-stone-400 text-xs tracking-widest uppercase border-t border-stone-100 mt-12">
-        <p class="mb-2"><span id="footer-year"></span> JoBins Calendar - Japan</p>
+        <p class="mb-2"><span id="footer-year"></span> <span id="footer-country">JoBins Calendar - Japan</span></p>
         <p>Created by Kushal</p>
     </footer>
 
