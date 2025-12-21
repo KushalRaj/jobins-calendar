@@ -25,10 +25,27 @@ let state = {
     year: new Date().getFullYear(),
     view: 'year', // 'year' or 'month'
     currentMonthDetail: new Date().getMonth(),
+    country: 'japan', // 'japan' or 'nepal'
     events: [] // Loaded from JSON
 };
 
 // --- Initialization ---
+
+async function loadEventsForCountry(country) {
+    const eventFile = `events-${country}.json`;
+    try {
+        const response = await fetch(eventFile);
+        if (response.ok) {
+            state.events = await response.json();
+        } else {
+            console.error(`Failed to load ${eventFile}`);
+            state.events = [];
+        }
+    } catch (error) {
+        console.error('Error fetching events:', error);
+        state.events = [];
+    }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 1. Set Today's Date in Header
@@ -37,16 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('today-date-display').textContent = now.toLocaleDateString('en-US', options);
 
     // 2. Fetch Events
-    try {
-        const response = await fetch('events.json');
-        if (response.ok) {
-            state.events = await response.json();
-        } else {
-            console.error('Failed to load events.json');
-        }
-    } catch (error) {
-        console.error('Error fetching events:', error);
-    }
+    await loadEventsForCountry(state.country);
 
     // 3. Initial Render
     renderApp();
@@ -90,6 +98,16 @@ function renderApp() {
     // Update Header Year
     document.getElementById('current-year-display').textContent = state.year;
     document.getElementById('footer-year').textContent = state.year;
+
+    // Update Country Display
+    const countryData = {
+        japan: { name: 'Japan', flag: '🇯🇵' },
+        nepal: { name: 'Nepal', flag: '🇳🇵' }
+    };
+    const country = countryData[state.country];
+    document.getElementById('selected-country-flag').textContent = country.flag;
+    document.getElementById('selected-country-name').textContent = country.name;
+    document.getElementById('footer-country').textContent = `JoBins Calendar - ${country.name}`;
 
     const container = document.getElementById('calendar-container');
     container.innerHTML = ''; // Clear current content
@@ -349,7 +367,35 @@ function setupEventListeners() {
         state.view = state.view === 'year' ? 'month' : 'year';
         renderApp();
     };
-    
+
+    // Country Dropdown
+    const dropdownBtn = document.getElementById('country-dropdown-btn');
+    const dropdownMenu = document.getElementById('country-dropdown-menu');
+
+    dropdownBtn.onclick = (e) => {
+        e.stopPropagation();
+        dropdownMenu.classList.toggle('hidden');
+    };
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', () => {
+        dropdownMenu.classList.add('hidden');
+    });
+
+    // Country Selection
+    document.querySelectorAll('.country-option').forEach(option => {
+        option.onclick = async (e) => {
+            e.stopPropagation();
+            const newCountry = option.dataset.country;
+            if (newCountry !== state.country) {
+                state.country = newCountry;
+                await loadEventsForCountry(state.country);
+                renderApp();
+            }
+            dropdownMenu.classList.add('hidden');
+        };
+    });
+
     // Modal Closing
     const modal = document.getElementById('event-modal');
     const close = () => {
@@ -359,7 +405,7 @@ function setupEventListeners() {
         content.classList.remove('zoom-in');
         void content.offsetWidth; // Trigger reflow
     };
-    
+
     document.getElementById('modal-close-btn').onclick = close;
     document.getElementById('modal-close-action').onclick = close;
     modal.onclick = (e) => {

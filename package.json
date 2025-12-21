@@ -1,0 +1,22 @@
+{
+  "name": "jobins-calendar",
+  "version": "1.0.0",
+  "description": "JoBins Calendar - Japan - A beautiful Japanese calendar application",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python3 -m http.server 8000",
+    "start": "python3 -m http.server 8000"
+  },
+  "keywords": [
+    "calendar",
+    "japan",
+    "japanese",
+    "holidays"
+  ],
+  "author": "Kushal",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kushal/jobins-calendar.git"
+  }
+}
