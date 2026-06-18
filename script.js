@@ -7,6 +7,10 @@ const SEASONS = {
     winter: { months: [11, 0, 1], color: 'text-slate-400', line: 'bg-slate-400', icon: 'snowflake' },
 };
 
+// IANA timezone per calendar country — used to decide what "today" is in the
+// country being viewed, not on the user's own clock.
+const TIMEZONES = { japan: 'Asia/Tokyo', nepal: 'Asia/Kathmandu' };
+
 // --- Internationalization ---
 // UI language ('en' | 'jp') is independent of the calendar country.
 // Holiday names themselves come from the data files and are not translated.
@@ -21,6 +25,8 @@ const TRANSLATIONS = {
         rest: 'Rest',
         prevYear: 'Previous Year',
         nextYear: 'Next Year',
+        prevMonth: 'Previous Month',
+        nextMonth: 'Next Month',
         switchView: 'Switch View',
         legendTitle: 'Legend',
         legendSubtitle: 'Key for the calendar symbols.',
@@ -48,6 +54,8 @@ const TRANSLATIONS = {
         rest: '休み',
         prevYear: '前年',
         nextYear: '翌年',
+        prevMonth: '前月',
+        nextMonth: '翌月',
         switchView: '表示切替',
         legendTitle: '凡例',
         legendSubtitle: 'カレンダー記号の説明',
@@ -128,7 +136,7 @@ let state = {
     lang: 'jp', // 'en' or 'jp' (UI language)
     country: 'japan', // 'japan' or 'nepal'
     base: '/', // app base directory, derived from the URL
-    events: [] // Loaded from JSON
+    eventsMap: {} // Loaded from JSON, keyed by date string for O(1) lookups
 };
 
 // --- Initialization ---
@@ -138,14 +146,17 @@ async function loadEventsForCountry(country) {
     try {
         const response = await fetch(eventFile);
         if (response.ok) {
-            state.events = await response.json();
+            const events = await response.json();
+            // Index events by date string so getDayStatus() is an O(1) lookup
+            // instead of an O(N) Array.find() per day (~372 calls per render).
+            state.eventsMap = Object.fromEntries(events.map(e => [e.date, e]));
         } else {
             console.error(`Failed to load ${eventFile}`);
-            state.events = [];
+            state.eventsMap = {};
         }
     } catch (error) {
         console.error('Error fetching events:', error);
-        state.events = [];
+        state.eventsMap = {};
     }
 }
 
@@ -178,9 +189,22 @@ function getSeason(monthIndex) {
     return SEASONS.winter;
 }
 
+// Returns the current { year, month (0-based), day } as it is *right now* in the
+// selected country's timezone. Reinterpreting the wall-clock string in the local
+// runtime lets us read the country's calendar date without any external library.
+function getTodayInCountry() {
+    const timeZone = TIMEZONES[state.country];
+    const localized = new Date(new Date().toLocaleString('en-US', { timeZone }));
+    return {
+        year: localized.getFullYear(),
+        month: localized.getMonth(),
+        day: localized.getDate(),
+    };
+}
+
 function getDayStatus(year, monthIndex, day) {
     const dateStr = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const event = state.events.find(e => e.date === dateStr);
+    const event = state.eventsMap[dateStr]; // O(1) lookup
 
     const dateObj = new Date(year, monthIndex, day);
     const dayOfWeek = dateObj.getDay(); // 0=Sun, 6=Sat
@@ -214,10 +238,17 @@ function applyTranslations() {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
 
-    document.getElementById('prev-year-btn').title = tr.prevYear;
-    document.getElementById('next-year-btn').title = tr.nextYear;
-    document.getElementById('view-toggle-btn').title = tr.switchView;
+    // Title + matching aria-label keep these icon-only buttons screen-reader friendly.
+    const labelButton = (id, text) => {
+        const el = document.getElementById(id);
+        el.title = text;
+        el.setAttribute('aria-label', text);
+    };
+    labelButton('prev-year-btn', tr.prevYear);
+    labelButton('next-year-btn', tr.nextYear);
+    labelButton('view-toggle-btn', tr.switchView);
     document.getElementById('modal-close-action').textContent = tr.close;
+    document.getElementById('modal-close-btn').setAttribute('aria-label', tr.close);
 
     // Country dropdown labels + selected country
     document.querySelectorAll('.country-option').forEach(opt => {
@@ -288,12 +319,12 @@ function renderMonthDetailView(container) {
     const nav = document.createElement('div');
     nav.className = "flex justify-between items-center mb-8 w-full";
     nav.innerHTML = `
-        <button id="prev-month-btn" class="p-2 hover:bg-stone-200 rounded-full transition"><i data-lucide="chevron-left"></i></button>
+        <button id="prev-month-btn" aria-label="${t().prevMonth}" title="${t().prevMonth}" class="p-2 hover:bg-stone-200 rounded-full transition"><i data-lucide="chevron-left"></i></button>
         <div class="text-center">
             <h2 class="text-3xl font-serif text-stone-800">${t().months[state.currentMonthDetail]} ${state.year}</h2>
             <span class="text-stone-500 font-sans tracking-widest text-sm">${otherT().months[state.currentMonthDetail]}</span>
         </div>
-        <button id="next-month-btn" class="p-2 hover:bg-stone-200 rounded-full transition"><i data-lucide="chevron-right"></i></button>
+        <button id="next-month-btn" aria-label="${t().nextMonth}" title="${t().nextMonth}" class="p-2 hover:bg-stone-200 rounded-full transition"><i data-lucide="chevron-right"></i></button>
     `;
     wrapper.appendChild(nav);
 
@@ -319,6 +350,7 @@ function renderMonthDetailView(container) {
 
 function createMonthCard(year, monthIndex, isDetail = false) {
     const tr = t();
+    const otherTr = otherT();
     const card = document.createElement('div');
     // Year view: fill the grid row (h-full) and animate on hover.
     // Detail view: size to content so all six week rows stay visible (and clickable).
@@ -345,7 +377,7 @@ function createMonthCard(year, monthIndex, isDetail = false) {
                     <h2 class="text-xl font-serif text-stone-800 leading-none">${tr.months[monthIndex]}</h2>
                     <i data-lucide="${season.icon}" class="w-4 h-4 ${season.color} opacity-80"></i>
                 </div>
-                <span class="text-xs text-stone-400 uppercase tracking-widest mt-1 block">${otherT().months[monthIndex]}</span>
+                <span class="text-xs text-stone-400 uppercase tracking-widest mt-1 block">${otherTr.months[monthIndex]}</span>
             </div>
         </div>
     `;
@@ -375,9 +407,10 @@ function createMonthCard(year, monthIndex, isDetail = false) {
 
     let holidaysCount = 0;
     let workDaysCount = 0;
-    const today = new Date();
-    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === monthIndex;
-    const currentDay = today.getDate();
+    // "Today" follows the selected country's timezone, not the user's local clock.
+    const today = getTodayInCountry();
+    const isCurrentMonth = today.year === year && today.month === monthIndex;
+    const currentDay = today.day;
 
     // Days
     for (let d = 1; d <= daysInMonth; d++) {
@@ -436,9 +469,19 @@ function createMonthCard(year, monthIndex, isDetail = false) {
             dayEl.innerHTML += `<div class="absolute bottom-1 w-1 h-1 bg-stone-400 rounded-full opacity-60"></div>`;
         }
 
-        // Interaction
+        // Interaction — keyboard accessible so focus can return here on close.
         if (isClickable) {
-            dayEl.onclick = () => openModal(status);
+            dayEl.setAttribute('role', 'button');
+            dayEl.setAttribute('tabindex', '0');
+            dayEl.setAttribute('aria-label', `${status.date}: ${status.title}`);
+            const open = () => openModal(status, dayEl);
+            dayEl.onclick = open;
+            dayEl.onkeydown = (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    open();
+                }
+            };
         }
 
         grid.appendChild(dayEl);
@@ -573,6 +616,12 @@ function setupEventListeners() {
         const content = modal.querySelector('div');
         content.classList.remove('zoom-in');
         void content.offsetWidth; // Trigger reflow
+
+        // Return focus to the calendar day that opened the modal.
+        if (modalReturnFocusEl) {
+            modalReturnFocusEl.focus();
+            modalReturnFocusEl = null;
+        }
     };
 
     document.getElementById('modal-close-btn').onclick = close;
@@ -580,10 +629,18 @@ function setupEventListeners() {
     modal.onclick = (e) => {
         if (e.target === modal) close();
     };
+    // Allow Escape to dismiss while focus is trapped inside the modal.
+    modal.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') close();
+    });
 }
 
-function openModal(eventData) {
+// Holds the element to restore focus to when the modal closes.
+let modalReturnFocusEl = null;
+
+function openModal(eventData, triggerEl) {
     const tr = t();
+    modalReturnFocusEl = triggerEl || null;
     const modal = document.getElementById('event-modal');
     const content = modal.querySelector('div');
 
@@ -604,7 +661,8 @@ function openModal(eventData) {
     date.textContent = eventData.date;
     desc.textContent = isHoliday ? tr.modalHolidayDesc : tr.modalWorkDesc;
 
-    // Show
+    // Show, then move focus into the dialog for screen-reader / keyboard users.
     content.classList.add('zoom-in');
     modal.classList.remove('hidden');
+    document.getElementById('modal-close-btn').focus();
 }

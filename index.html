@@ -86,7 +86,7 @@
             </h1>
 
             <div class="flex items-center gap-6 group mt-1">
-                <button id="prev-year-btn" class="p-1 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-200 transition-all" title="Previous Year">
+                <button id="prev-year-btn" class="p-1 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-200 transition-all" title="前年" aria-label="前年">
                     <i data-lucide="chevron-left" class="w-6 h-6"></i>
                 </button>
 
@@ -94,7 +94,7 @@
                     <!-- Year injected via JS -->
                 </span>
 
-                <button id="next-year-btn" class="p-1 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-200 transition-all" title="Next Year">
+                <button id="next-year-btn" class="p-1 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-200 transition-all" title="翌年" aria-label="翌年">
                     <i data-lucide="chevron-right" class="w-6 h-6"></i>
                 </button>
             </div>
@@ -115,7 +115,7 @@
                 <button class="lang-option px-3 py-1.5 transition-colors" data-lang="en">EN</button>
             </div>
 
-            <button id="view-toggle-btn" class="p-3 rounded-full hover:bg-stone-200 transition-colors duration-300 text-stone-600" title="Switch View">
+            <button id="view-toggle-btn" class="p-3 rounded-full hover:bg-stone-200 transition-colors duration-300 text-stone-600" title="表示切替" aria-label="表示切替">
                 <i data-lucide="calendar" class="w-5 h-5"></i>
             </button>
         </div>
@@ -133,11 +133,11 @@
     </footer>
 
     <!-- Modal Template (Hidden by default) -->
-    <div id="event-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+    <div id="event-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden zoom-in">
             <div id="modal-header-line" class="h-2 w-full bg-stone-600"></div>
             <div class="p-6 relative">
-                <button id="modal-close-btn" class="absolute top-4 right-4 text-stone-400 hover:text-stone-600 transition-colors">
+                <button id="modal-close-btn" class="absolute top-4 right-4 text-stone-400 hover:text-stone-600 transition-colors" aria-label="Close">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
                 
