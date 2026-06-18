@@ -1,7 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
+
+    <!--
+      Single Page Apps for GitHub Pages — restore the clean route that 404.html
+      stashed in the query string (e.g. /?/en/ne/  ->  /en/ne/). Runs before any
+      other resource so a <base> can be set to keep relative assets resolving
+      against the app root even though the visible URL gains route segments.
+    -->
+    <script>
+      (function (l) {
+        if (l.search[1] === '/') {
+          var pathSegmentsToKeep = 1; // keep in sync with 404.html
+          var rootSegs = l.pathname.split('/').filter(Boolean).slice(0, pathSegmentsToKeep);
+          document.write('<base href="/' + (rootSegs.length ? rootSegs.join('/') + '/' : '') + '">');
+          var decoded = l.search.slice(1).split('&').map(function (s) {
+            return s.replace(/~and~/g, '&');
+          }).join('?');
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
+        }
+      }(window.location));
+    </script>
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JoBins Calendar - Japan</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -48,11 +69,11 @@
                 <div id="country-dropdown-menu" class="absolute top-full left-0 mt-1 bg-white border border-stone-200 rounded shadow-lg hidden min-w-[140px] z-50">
                     <button class="country-option w-full flex items-center gap-2 px-4 py-2 hover:bg-stone-50 transition-colors text-left" data-country="japan">
                         <span class="text-lg">🇯🇵</span>
-                        <span class="text-sm text-stone-700">Japan</span>
+                        <span class="text-sm text-stone-700" data-country-label>Japan</span>
                     </button>
                     <button class="country-option w-full flex items-center gap-2 px-4 py-2 hover:bg-stone-50 transition-colors text-left" data-country="nepal">
                         <span class="text-lg">🇳🇵</span>
-                        <span class="text-sm text-stone-700">Nepal</span>
+                        <span class="text-sm text-stone-700" data-country-label>Nepal</span>
                     </button>
                 </div>
             </div>
@@ -60,8 +81,8 @@
 
         <!-- Center: Main Title + Year Switcher -->
         <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-auto">
-            <h1 class="text-xl md:text-2xl font-serif text-stone-800 tracking-wider mb-2 text-nowrap">
-                年年間カレンダー
+            <h1 id="main-title" class="text-xl md:text-2xl font-serif text-stone-800 tracking-wider mb-2 text-nowrap">
+                年間カレンダー
             </h1>
 
             <div class="flex items-center gap-6 group mt-1">
@@ -82,11 +103,18 @@
         <!-- Right: Controls -->
         <div class="flex items-center justify-end gap-4 z-10 w-1/4">
             <div class="hidden md:flex flex-col items-end mr-2 text-right">
-                <span class="text-xs text-stone-400 uppercase tracking-widest">Today</span>
+                <span id="today-label" class="text-xs text-stone-400 uppercase tracking-widest">Today</span>
                 <span id="today-date-display" class="text-sm font-serif text-stone-800">
                     <!-- Date injected via JS -->
                 </span>
             </div>
+
+            <!-- Language Toggle (EN / JP) -->
+            <div class="flex items-center rounded-full border border-stone-200 overflow-hidden text-xs font-medium">
+                <button class="lang-option px-3 py-1.5 transition-colors" data-lang="jp">JP</button>
+                <button class="lang-option px-3 py-1.5 transition-colors" data-lang="en">EN</button>
+            </div>
+
             <button id="view-toggle-btn" class="p-3 rounded-full hover:bg-stone-200 transition-colors duration-300 text-stone-600" title="Switch View">
                 <i data-lucide="calendar" class="w-5 h-5"></i>
             </button>

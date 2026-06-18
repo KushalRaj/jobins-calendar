@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>JoBins Calendar</title>
+    <!--
+      Single Page Apps for GitHub Pages
+      https://github.com/rafgraph/spa-github-pages
+
+      GitHub Pages serves static files only, so a direct hit on a clean route
+      such as /jobins-calendar/en/ne/ returns this 404 page. We rewrite that
+      path into a query string and redirect to the app root, where the inline
+      script in index.html turns it back into the original clean URL.
+    -->
+    <script>
+      // Number of path segments that belong to the app root (not the route).
+      // GitHub project page served from /jobins-calendar/  -> keep 1.
+      // User/org page or custom domain served from /        -> set to 0.
+      var pathSegmentsToKeep = 1;
+
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    </script>
+  </head>
+  <body></body>
+</html>
