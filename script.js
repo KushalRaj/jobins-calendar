@@ -40,6 +40,7 @@ const TRANSLATIONS = {
         modalHolidayDesc: 'Office is closed on this day.',
         modalWorkDesc: 'Regular working hours apply.',
         close: 'Close',
+        loading: 'Loading',
         countries: { japan: 'Japan', nepal: 'Nepal' },
         months: ['January', 'February', 'March', 'April', 'May', 'June',
                  'July', 'August', 'September', 'October', 'November', 'December'],
@@ -69,6 +70,7 @@ const TRANSLATIONS = {
         modalHolidayDesc: 'この日はお休みです。',
         modalWorkDesc: '通常勤務日です。',
         close: '閉じる',
+        loading: '読み込み中',
         countries: { japan: '日本', nepal: 'ネパール' },
         months: ['1月', '2月', '3月', '4月', '5月', '6月',
                  '7月', '8月', '9月', '10月', '11月', '12月'],
@@ -136,26 +138,113 @@ let state = {
     lang: 'jp', // 'en' or 'jp' (UI language)
     country: 'japan', // 'japan' or 'nepal'
     base: '/', // app base directory, derived from the URL
-    eventsMap: {} // Loaded from JSON, keyed by date string for O(1) lookups
+    eventsMap: {} // Loaded from the Google Sheet CSV, keyed by date for O(1) lookups
 };
 
 // --- Initialization ---
 
-async function loadEventsForCountry(country) {
-    const eventFile = `${state.base}events-${country}.json`;
+// Per-country published Google Sheet CSV URLs live in event-sources.json so they
+// can be edited without touching the code. Loaded once, then cached.
+let eventSources = null;
+
+async function getEventSources() {
+    if (eventSources) return eventSources;
     try {
-        const response = await fetch(eventFile);
+        const response = await fetch(`${state.base}event-sources.json`);
+        eventSources = response.ok ? await response.json() : {};
+        if (!response.ok) console.error(`Failed to load event-sources.json: HTTP ${response.status}`);
+    } catch (error) {
+        console.error('Error fetching event-sources.json:', error);
+        eventSources = {};
+    }
+    return eventSources;
+}
+
+// Normalises a sheet date to YYYY-MM-DD. Accepts YYYY-MM-DD (Nepal sheet) and
+// M/D/YYYY (Japan sheet), zero-padding month/day so lookups always match.
+function normalizeDate(raw) {
+    const s = String(raw).trim();
+    const pad = (n) => n.padStart(2, '0');
+    let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (m) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) return `${m[3]}-${pad(m[1])}-${pad(m[2])}`;
+    return s;
+}
+
+// Minimal RFC-4180-ish CSV parser: handles quoted fields, embedded commas/newlines
+// and "" escapes, plus CRLF line endings. Returns an array of string-arrays.
+function parseCsv(text) {
+    const rows = [];
+    let row = [];
+    let field = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (inQuotes) {
+            if (c === '"') {
+                if (text[i + 1] === '"') { field += '"'; i++; } // escaped quote
+                else inQuotes = false;
+            } else {
+                field += c;
+            }
+        } else if (c === '"') {
+            inQuotes = true;
+        } else if (c === ',') {
+            row.push(field); field = '';
+        } else if (c === '\n') {
+            row.push(field); rows.push(row); row = []; field = '';
+        } else if (c !== '\r') {
+            field += c;
+        }
+    }
+    if (field !== '' || row.length) { row.push(field); rows.push(row); }
+    return rows;
+}
+
+// Maps a CSV string (with a date/title/type header) to event objects, addressing
+// columns by header name so column order doesn't matter.
+function csvToEvents(text) {
+    const rows = parseCsv(text).filter(r => r.some(c => c.trim() !== ''));
+    if (!rows.length) return [];
+    const header = rows[0].map(h => h.trim().toLowerCase());
+    const di = header.indexOf('date');
+    const ti = header.indexOf('title');
+    const tyi = header.indexOf('type');
+    if (di === -1) {
+        console.error('Events CSV is missing a "date" column header.');
+        return [];
+    }
+    return rows.slice(1)
+        .map(r => ({
+            date: normalizeDate(r[di] || ''),
+            title: (r[ti] || '').trim(),
+            type: (r[tyi] || '').trim().toLowerCase(),
+        }))
+        .filter(e => e.date);
+}
+
+async function loadEventsForCountry(country) {
+    const sources = await getEventSources();
+    const url = sources[country];
+    if (!url) {
+        console.error(`No event source URL configured for "${country}".`);
+        state.eventsMap = {};
+        return;
+    }
+    try {
+        const response = await fetch(url);
         if (response.ok) {
-            const events = await response.json();
+            const events = csvToEvents(await response.text());
             // Index events by date string so getDayStatus() is an O(1) lookup
             // instead of an O(N) Array.find() per day (~372 calls per render).
             state.eventsMap = Object.fromEntries(events.map(e => [e.date, e]));
         } else {
-            console.error(`Failed to load ${eventFile}`);
+            console.error(`Failed to load events for ${country}: HTTP ${response.status}`);
             state.eventsMap = {};
         }
     } catch (error) {
-        console.error('Error fetching events:', error);
+        console.error(`Error fetching events for ${country}:`, error);
         state.eventsMap = {};
     }
 }
@@ -165,6 +254,7 @@ async function applyRoute() {
     state.lang = route.lang;
     state.country = route.country;
     state.base = route.base;
+    showLoader();
     await loadEventsForCountry(state.country);
     renderApp();
 }
@@ -223,6 +313,28 @@ function getDayStatus(year, monthIndex, day) {
 }
 
 // --- Rendering ---
+
+// Animated "fade-stagger-squares" loader, shown in the calendar area while the
+// event CSV is being fetched. renderApp() replaces it once data arrives.
+function showLoader() {
+    const container = document.getElementById('calendar-container');
+    container.innerHTML = `
+        <div class="flex flex-col items-center justify-center min-h-[60vh] gap-6" role="status" aria-live="polite">
+            <svg class="w-20 h-20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" aria-hidden="true">
+                <rect fill="#FF7873" stroke="#FF7873" stroke-width="24" width="30" height="30" x="25" y="85">
+                    <animate attributeName="opacity" calcMode="spline" dur="2.7s" values="1;0;1;" keySplines=".5 0 .5 1;.5 0 .5 1" repeatCount="indefinite" begin="-.4s"></animate>
+                </rect>
+                <rect fill="#FF7873" stroke="#FF7873" stroke-width="24" width="30" height="30" x="85" y="85">
+                    <animate attributeName="opacity" calcMode="spline" dur="2.7s" values="1;0;1;" keySplines=".5 0 .5 1;.5 0 .5 1" repeatCount="indefinite" begin="-.2s"></animate>
+                </rect>
+                <rect fill="#FF7873" stroke="#FF7873" stroke-width="24" width="30" height="30" x="145" y="85">
+                    <animate attributeName="opacity" calcMode="spline" dur="2.7s" values="1;0;1;" keySplines=".5 0 .5 1;.5 0 .5 1" repeatCount="indefinite" begin="0s"></animate>
+                </rect>
+            </svg>
+            <span class="text-xs text-stone-400 uppercase tracking-widest">${t().loading}</span>
+        </div>
+    `;
+}
 
 function applyTranslations() {
     const tr = t();
@@ -294,7 +406,7 @@ function renderApp() {
 
 function renderYearView(container) {
     const gridContainer = document.createElement('div');
-    gridContainer.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-[1600px] mx-auto";
+    gridContainer.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-[1600px] mx-auto";
 
     // 12 Months
     for (let i = 0; i < 12; i++) {
@@ -567,6 +679,24 @@ function setupEventListeners() {
         renderApp();
     };
 
+    // Clicking "today" jumps to the full month view of the current month/year
+    // (in the selected country's timezone).
+    const goToCurrentMonth = () => {
+        const today = getTodayInCountry();
+        state.year = today.year;
+        state.currentMonthDetail = today.month;
+        state.view = 'month';
+        renderApp();
+    };
+    const todayDisplay = document.getElementById('today-date-display');
+    todayDisplay.onclick = goToCurrentMonth;
+    todayDisplay.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            goToCurrentMonth();
+        }
+    };
+
     // Language Toggle (EN / JP) — reflected in the URL.
     document.querySelectorAll('.lang-option').forEach(btn => {
         btn.onclick = () => {
@@ -601,6 +731,7 @@ function setupEventListeners() {
             if (newCountry !== state.country) {
                 state.country = newCountry;
                 syncUrl();
+                showLoader();
                 await loadEventsForCountry(state.country);
                 renderApp();
             }

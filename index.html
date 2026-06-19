@@ -4,17 +4,23 @@
     <meta charset="UTF-8">
 
     <!--
-      Single Page Apps for GitHub Pages — restore the clean route that 404.html
-      stashed in the query string (e.g. /?/en/ne/  ->  /en/ne/). Runs before any
-      other resource so a <base> can be set to keep relative assets resolving
-      against the app root even though the visible URL gains route segments.
+      Clean-URL routing support for ANY static host (Laravel Herd, GitHub Pages,
+      local). Runs before any other resource so the <base> below keeps relative
+      assets (script.js, favicon, event-sources.json) resolving against the app
+      root even when the visible URL carries route segments like /en/ne/.
     -->
     <script>
       (function (l) {
+        // App root = current path with trailing route tokens stripped. Must stay
+        // in sync with the language/country tokens parsed in script.js.
+        var ROUTE_TOKENS = { en: 1, jp: 1, ja: 1, ne: 1 };
+        var segs = l.pathname.split('/').filter(Boolean);
+        while (segs.length && ROUTE_TOKENS[segs[segs.length - 1].toLowerCase()]) segs.pop();
+        document.write('<base href="/' + (segs.length ? segs.join('/') + '/' : '') + '">');
+
+        // GitHub Pages only: 404.html stashes the real path in the query string
+        // (e.g. /?/en/ne/). Restore it to a clean URL now that <base> is set.
         if (l.search[1] === '/') {
-          var pathSegmentsToKeep = 1; // keep in sync with 404.html
-          var rootSegs = l.pathname.split('/').filter(Boolean).slice(0, pathSegmentsToKeep);
-          document.write('<base href="/' + (rootSegs.length ? rootSegs.join('/') + '/' : '') + '">');
           var decoded = l.search.slice(1).split('&').map(function (s) {
             return s.replace(/~and~/g, '&');
           }).join('?');
@@ -58,8 +64,8 @@
 
     <!-- Header -->
     <header class="relative flex items-center justify-between py-8 px-6 md:px-12 border-b border-stone-200 bg-[#fcfaf7] min-h-[140px] md:min-h-[120px]">
-        <!-- Left: Country Dropdown -->
-        <div class="flex flex-col z-10 w-1/4">
+        <!-- Left: Country Dropdown + Language Toggle -->
+        <div class="flex flex-col items-start gap-3 z-10 w-1/4">
             <div class="relative country-selector">
                 <button id="country-dropdown-btn" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-stone-100 transition-colors text-stone-700">
                     <span id="selected-country-flag" class="text-lg">🇯🇵</span>
@@ -76,6 +82,12 @@
                         <span class="text-sm text-stone-700" data-country-label>Nepal</span>
                     </button>
                 </div>
+            </div>
+
+            <!-- Language Toggle (EN / JP) -->
+            <div class="inline-flex items-center rounded-full border border-stone-200 overflow-hidden text-xs font-medium">
+                <button class="lang-option px-3 py-1.5 transition-colors" data-lang="jp">JP</button>
+                <button class="lang-option px-3 py-1.5 transition-colors" data-lang="en">EN</button>
             </div>
         </div>
 
@@ -100,24 +112,17 @@
             </div>
         </div>
         
-        <!-- Right: Controls -->
-        <div class="flex items-center justify-end gap-4 z-10 w-1/4">
-            <div class="hidden md:flex flex-col items-end mr-2 text-right">
-                <span id="today-label" class="text-xs text-stone-400 uppercase tracking-widest">Today</span>
-                <span id="today-date-display" class="text-sm font-serif text-stone-800">
-                    <!-- Date injected via JS -->
-                </span>
-            </div>
-
-            <!-- Language Toggle (EN / JP) -->
-            <div class="flex items-center rounded-full border border-stone-200 overflow-hidden text-xs font-medium">
-                <button class="lang-option px-3 py-1.5 transition-colors" data-lang="jp">JP</button>
-                <button class="lang-option px-3 py-1.5 transition-colors" data-lang="en">EN</button>
-            </div>
-
+        <!-- Right: Controls — calendar toggle sits in front of today's date -->
+        <div class="flex items-center justify-end gap-3 z-10 w-1/4">
             <button id="view-toggle-btn" class="p-3 rounded-full hover:bg-stone-200 transition-colors duration-300 text-stone-600" title="表示切替" aria-label="表示切替">
                 <i data-lucide="calendar" class="w-5 h-5"></i>
             </button>
+            <div class="hidden md:flex flex-col items-end text-right">
+                <span id="today-label" class="text-xs text-stone-400 uppercase tracking-widest">Today</span>
+                <span id="today-date-display" role="button" tabindex="0" title="View current month" class="text-sm font-serif text-stone-800 cursor-pointer hover:text-indigo-600 transition-colors">
+                    <!-- Date injected via JS -->
+                </span>
+            </div>
         </div>
     </header>
 
@@ -129,7 +134,7 @@
     <!-- Footer -->
     <footer class="py-12 text-center text-stone-400 text-xs tracking-widest uppercase border-t border-stone-100 mt-12">
         <p class="mb-2"><span id="footer-year"></span> <span id="footer-country">JoBins Calendar - Japan</span></p>
-        <p>Created by Kushal</p>
+        <p>Created by <a href="https://github.com/KushalRaj" target="_blank" rel="noopener noreferrer" class="underline hover:text-stone-600 transition-colors">Kushal</a></p>
     </footer>
 
     <!-- Modal Template (Hidden by default) -->
